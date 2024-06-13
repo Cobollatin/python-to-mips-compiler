@@ -1,0 +1,9 @@
+# Bison
+*.tab.c
+*.output
+# Flex
+*.yy.c
+# Binary
+compiler
+# Assembly
+output.asm

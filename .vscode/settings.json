@@ -1,0 +1,20 @@
+{
+    "files.associations": {
+        ".fantomasignore": "ignore",
+        "ast.h": "c",
+        "types.h": "c",
+        "symbol_table.h": "c",
+        "compare": "c",
+        "format": "c",
+        "memory": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c",
+        "xmemory": "c",
+        "xstring": "c",
+        "xtr1common": "c",
+        "xutility": "c",
+        "mips.h": "c",
+        "xiosbase": "c"
+    }
+}
