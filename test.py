@@ -31,3 +31,9 @@ if c > d:
 else:
     print(d)
 
+# Function
+# def add(x, y):
+#    return x + y
+# result = add(5, 4)
+# print(result)
+

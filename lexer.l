@@ -60,4 +60,5 @@ _?[a-zA-Z][a-zA-Z0-9_]*                                  { yylval.stringVal = st
 void yyerror(const char *str)
 {
     fprintf(stderr,"Error | Line: %d\n%s\n", yylineno, str);
+    exit(1);
 }
