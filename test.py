@@ -7,6 +7,7 @@ a = 0
 b = 0
 c = 0
 d = 0
+e = 21
 f = 15
 
 # Arithmetic operations
@@ -15,11 +16,11 @@ b = 10 - 2
 c = a * b
 d = c / 4
 
-print(a)
+print(e)
 
 while a < 10:
-    a = a + 1
     print(a)
+    a = a + 1
 
 # For loop
 for __index__ in range(0, 2):

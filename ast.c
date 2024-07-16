@@ -203,7 +203,7 @@ AST* handleFor(struct ast* n, int localLabelCounter, int nodeDepth) {
         return NULL;
     }
 
-    int max = n->left->value;
+    int max = n->left->value - 1;
     int c = forLabelCount++;
     AST* nextNode = NULL;
 
