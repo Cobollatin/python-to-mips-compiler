@@ -20,17 +20,4 @@ if a > b:
 else:
     b = a
 
-# For loop
-for i in range(0, 10):
-    print(i)
-
-# While loop
-while b < 20:
-    b += 1
-
-# Function
-def add(x, y):
-    return x + y
-
-result = add(5, 4)
-print("Result:", result)
+print("Result")

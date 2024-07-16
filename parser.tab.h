@@ -54,37 +54,45 @@ extern int yydebug;
     YYEOF = 0,                     /* "end of file"  */
     YYerror = 256,                 /* error  */
     YYUNDEF = 257,                 /* "invalid token"  */
-    INT = 258,                     /* INT  */
-    FLOAT = 259,                   /* FLOAT  */
-    STRING = 260,                  /* STRING  */
-    ID = 261,                      /* ID  */
-    IF = 262,                      /* IF  */
-    ELSE = 263,                    /* ELSE  */
-    FOR = 264,                     /* FOR  */
-    WHILE = 265,                   /* WHILE  */
-    CONTINUE = 266,                /* CONTINUE  */
-    BREAK = 267,                   /* BREAK  */
-    DEF = 268,                     /* DEF  */
-    RETURN = 269,                  /* RETURN  */
-    PLUS = 270,                    /* PLUS  */
-    MINUS = 271,                   /* MINUS  */
-    MULT = 272,                    /* MULT  */
-    DIV = 273,                     /* DIV  */
-    ASSIGN = 274,                  /* ASSIGN  */
-    PLUS_ASSIGN = 275,             /* PLUS_ASSIGN  */
-    MINUS_ASSIGN = 276,            /* MINUS_ASSIGN  */
-    EQ = 277,                      /* EQ  */
-    NEQ = 278,                     /* NEQ  */
-    LT = 279,                      /* LT  */
-    GT = 280,                      /* GT  */
-    LTE = 281,                     /* LTE  */
-    GTE = 282,                     /* GTE  */
-    LPAREN = 283,                  /* LPAREN  */
-    RPAREN = 284,                  /* RPAREN  */
-    COLON = 285,                   /* COLON  */
-    ENDL = 286,                    /* ENDL  */
-    INDENT = 287,                  /* INDENT  */
-    DEDENT = 288                   /* DEDENT  */
+    MULTIPLY = 258,                /* MULTIPLY  */
+    IF = 259,                      /* IF  */
+    ELSE = 260,                    /* ELSE  */
+    WHILE = 261,                   /* WHILE  */
+    NEWLINE = 262,                 /* NEWLINE  */
+    EMPTY = 263,                   /* EMPTY  */
+    BLOCK_START = 264,             /* BLOCK_START  */
+    DIVIDE = 265,                  /* DIVIDE  */
+    ADD = 266,                     /* ADD  */
+    SUBTRACT = 267,                /* SUBTRACT  */
+    EQUAL = 268,                   /* EQUAL  */
+    OPENPAREN = 269,               /* OPENPAREN  */
+    CLOSEPAREN = 270,              /* CLOSEPAREN  */
+    PRINT = 271,                   /* PRINT  */
+    NOT = 272,                     /* NOT  */
+    LESS = 273,                    /* LESS  */
+    GREATER = 274,                 /* GREATER  */
+    NOTEQUAL = 275,                /* NOTEQUAL  */
+    EQUALS = 276,                  /* EQUALS  */
+    GREATEREQUAL = 277,            /* GREATEREQUAL  */
+    LESSEQUAL = 278,               /* LESSEQUAL  */
+    ADDEQUAL = 279,                /* ADDEQUAL  */
+    SUBTRACTEQUAL = 280,           /* SUBTRACTEQUAL  */
+    OPENBRACE = 281,               /* OPENBRACE  */
+    CLOSEBRACE = 282,              /* CLOSEBRACE  */
+    FUNCTION = 283,                /* FUNCTION  */
+    RETURN = 284,                  /* RETURN  */
+    BREAK = 285,                   /* BREAK  */
+    CONTINUE = 286,                /* CONTINUE  */
+    ARRAY = 287,                   /* ARRAY  */
+    SEMICOLON = 288,               /* SEMICOLON  */
+    NUMERIC = 289,                 /* NUMERIC  */
+    TABS = 290,                    /* TABS  */
+    DECIMALNUMERIC = 291,          /* DECIMALNUMERIC  */
+    IDENTIFIER = 292,              /* IDENTIFIER  */
+    STRING = 293,                  /* STRING  */
+    BOOLEAN = 294,                 /* BOOLEAN  */
+    OR = 295,                      /* OR  */
+    AND = 296                      /* AND  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -93,14 +101,20 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 17 "parser.y"
+#line 14 "parser.y"
 
-    int num;
-    float flt;
-    char *str;
-    struct ast_node *node;
+    int intVal;
+    float floatVal;
+    char *stringVal;
+    struct attributes {
+        int numeric;
+        float numericDecimal;
+        char *strVal;
+        int type;
+        struct ast *n;
+    } attr;
 
-#line 104 "parser.tab.h"
+#line 118 "parser.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -108,23 +122,9 @@ typedef union YYSTYPE YYSTYPE;
 # define YYSTYPE_IS_DECLARED 1
 #endif
 
-/* Location type.  */
-#if ! defined YYLTYPE && ! defined YYLTYPE_IS_DECLARED
-typedef struct YYLTYPE YYLTYPE;
-struct YYLTYPE
-{
-  int first_line;
-  int first_column;
-  int last_line;
-  int last_column;
-};
-# define YYLTYPE_IS_DECLARED 1
-# define YYLTYPE_IS_TRIVIAL 1
-#endif
-
 
 extern YYSTYPE yylval;
-extern YYLTYPE yylloc;
+
 
 int yyparse (void);
 

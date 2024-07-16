@@ -1,6 +1,7 @@
 {
     "files.associations": {
         ".fantomasignore": "ignore",
+        "MLTable": "yaml",
         "ast.h": "c",
         "types.h": "c",
         "symbol_table.h": "c",
@@ -15,6 +16,8 @@
         "xtr1common": "c",
         "xutility": "c",
         "mips.h": "c",
-        "xiosbase": "c"
+        "xiosbase": "c",
+        "stdbool.h": "c",
+        "stdio.h": "c"
     }
 }

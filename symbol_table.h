@@ -1,13 +1,24 @@
 #ifndef SYMBOL_TABLE_H
 #define SYMBOL_TABLE_H
 
-#include "types.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "ast.h"
 
-void init_symbol_table();
-int symbol_exists(const char *name);
-void add_symbol(const char *name, type_t type);
-void update_symbol(const char *name, type_t type);
-type_t get_symbol_type(const char *name);
-type_t current_function_return_type();
+#define MAX_SYMBOLS 512
 
-#endif
+typedef struct {  
+    double* numVal;  
+    char* strVal;            
+    char *identifier;
+    DataType dataType;
+    int pos;            
+} SymbolEntry;
+
+extern SymbolEntry symbolTable[MAX_SYMBOLS];
+extern int currentIndex;
+
+int findSymbol(int currentIndex, char *identifier, SymbolEntry symbolTable[]);
+
+#endif // SYMBOL_TABLE_H

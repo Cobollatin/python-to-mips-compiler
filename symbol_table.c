@@ -1,62 +1,27 @@
-#include "symbol_table.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "symbol_table.h"
 
-#define MAX_SYMBOLS 100
+#define MAX_SYMBOLS 512
 
-typedef struct {
-    char* name;
-    type_t type;
-} symbol;
+SymbolEntry symbolTable[MAX_SYMBOLS];
+int currentIndex = 0;
 
-static symbol symbol_table[MAX_SYMBOLS];
-static int symbol_count = 0;
-static type_t current_function_type = TYPE_INT; // Default type
-
-void init_symbol_table() {
-    symbol_count = 0;
-}
-
-int symbol_exists(const char* name) {
-    for(int i = 0; i < symbol_count; i++) {
-        if(strcmp(symbol_table[i].name, name) == 0) {
-            return 1;
+int findSymbol(int currentIndex, char *identifier, SymbolEntry symbolTable[]) {
+    int foundIndex = -1;
+    int i = 0;
+    while (i < currentIndex) {
+        if (i >= MAX_SYMBOLS) {
+            printf("Overflow when searching for symbol %s\n", identifier);
+            break;
         }
-    }
-    return 0;
-}
 
-void add_symbol(const char* name, type_t type) {
-    if(symbol_count < MAX_SYMBOLS) {
-        symbol_table[symbol_count].name = strdup(name);
-        symbol_table[symbol_count].type = type;
-        symbol_count++;
-    }
-    else {
-        fprintf(stderr, "Symbol table overflow\n");
-    }
-}
-
-void update_symbol(const char* name, type_t type) {
-    for(int i = 0; i < symbol_count; i++) {
-        if(strcmp(symbol_table[i].name, name) == 0) {
-            symbol_table[i].type = type;
-            return;
+        if (strcmp(symbolTable[i].identifier, identifier) == 0 && strcmp("_", identifier) != 0) {
+            foundIndex = i;
+            break;
         }
+        i++;
     }
-    fprintf(stderr, "Symbol not found\n");
-}
-
-type_t get_symbol_type(const char* name) {
-    for(int i = 0; i < symbol_count; i++) {
-        if(strcmp(symbol_table[i].name, name) == 0) {
-            return symbol_table[i].type;
-        }
-    }
-    return TYPE_INT; // Default type if not found
-}
-
-type_t current_function_return_type() {
-    return current_function_type;
+    return foundIndex;
 }

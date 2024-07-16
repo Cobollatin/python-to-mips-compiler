@@ -1,45 +1,79 @@
 #ifndef AST_H
 #define AST_H
 
-#include "types.h"
+#include <stdbool.h>
+#include <stdio.h>
 
-struct ast_node {
-    type_t type;
-    union {
-        int int_val;
-        float float_val;
-        char* string_val;
-        struct {
-            char* name;
-            struct ast_node* params;
-            struct ast_node* body;
-        } function;
-        struct {
-            struct ast_node* condition;
-            struct ast_node* then_branch;
-            struct ast_node* else_branch;
-        } if_else;
-    } value;
-    struct ast_node* left;
-    struct ast_node* right;
-};
+extern FILE* yyout;
 
-struct ast_node* create_int_node(int value);
-struct ast_node* create_float_node(float value);
-struct ast_node* create_string_node(char* value);
-struct ast_node* create_id_node(char* name);
-struct ast_node* create_arith_node(char op, struct ast_node* left, struct ast_node* right);
-struct ast_node* create_relop_node(char* op, struct ast_node* left, struct ast_node* right);
-struct ast_node* create_if_node(struct ast_node* condition, struct ast_node* body);
-struct ast_node* create_if_else_node(struct ast_node* condition, struct ast_node* then_branch, struct ast_node* else_branch);
-struct ast_node* create_for_node(struct ast_node* condition, struct ast_node* body);
-struct ast_node* create_while_node(struct ast_node* condition, struct ast_node* body);
-struct ast_node* create_continue_node();
-struct ast_node* create_break_node();
-struct ast_node* create_program_node();
-struct ast_node* create_function_node(char* name, struct ast_node* body);
-struct ast_node* create_return_node(struct ast_node* value);
-struct ast_node* create_empty_node();
-float get_float_value(struct ast_node* node);
+typedef enum {
+    INVALID_NODE = 0,
+    NEW_NODE, // 1
+    NODE_ADD, // 2
+    NODE_SUBTRACT, // 3
+    NODE_MULTIPLY, // 4
+    NODE_DIVIDE, // 5
+    NODE_PRINT, // 6
+    NODE_ASSIGN, // 7
+    NODE_CHAIN, // 8
+    NODE_EQUAL, // 9
+    NODE_GREATER, // 10
+    NODE_LESS, // 11
+    NODE_GREATER_EQUAL, // 12
+    NODE_LESS_EQUAL, // 13
+    NODE_ADD_EQUAL, // 14
+    NODE_SUBTRACT_EQUAL, // 15
+    NODE_NOT_EQUAL, // 16
+    NODE_IF, // 17
+    NODE_ELSE, // 18
+    NODE_WHILE, // 19
+    NODE_AND, // 20
+    NODE_OR, // 21
+    NODE_CONCAT // 22
+} NodeType;
 
-#endif
+typedef enum {
+    TYPE_NUMERIC = 0,
+    TYPE_DECIMAL, // 1
+    TYPE_TEXT, // 2
+    TYPE_BOOL, // 3
+    TYPE_STRING // 4
+} DataType;
+
+typedef struct ast {
+    struct ast* left;
+    struct ast* right;
+    NodeType nodeType;
+    double value;
+    char* valueStr;
+    DataType type;
+    int result;
+    int varName;
+    int depth;
+} AST;
+
+void newline();
+void printFunction(AST* n);
+void printVariables();
+int findReg();
+int findTmpReg();
+void clearReg(AST* left, AST* right);
+void clearTmpReg(AST* n);
+AST* createEmptyNode();
+AST* createTerminalNode(double value);
+AST* createTerminalNodeStr(char* value);
+AST* createNonTerminalNode(AST* left, AST* right, NodeType nodeType);
+AST* createVariableTerminal(double value, int pos);
+bool nodeIsType(AST* attr, NodeType type);
+void assignDepth(AST* n, int depth);
+void handleNewNode(AST* n);
+void handleBinaryOperation(AST* n, const char* operation, int localLabelCounter, int nodeDepth);
+void handleComparisonOperation(AST* n, const char* operation, const char* movCondition, int localLabelCounter, int nodeDepth);
+void handlePrint(AST* n, int localLabelCounter, int nodeDepth);
+void handleAssign(AST* n, int localLabelCounter, int nodeDepth);
+void handleIf(AST* n, int localLabelCounter, int nodeDepth);
+void handleWhile(AST* n, int localLabelCounter, int nodeDepth);
+AST* checkNodeValue(AST* n, int localLabelCounter, int currentDepth);
+void checkAST(AST* n);
+
+#endif // AST_H

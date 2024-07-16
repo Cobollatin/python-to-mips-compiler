@@ -1,265 +1,437 @@
 %{
 #include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include "ast.h"
 #include "symbol_table.h"
-#include "mips.h"
 
-void yyerror(const char *s);
 int yylex(void);
-
-struct ast_node *root = NULL;
-
+void yyerror(const char *);
 %}
 
-%locations
 %union {
-    int num;
-    float flt;
-    char *str;
-    struct ast_node *node;
+    int intVal;
+    float floatVal;
+    char *stringVal;
+    struct attributes {
+        int numeric;
+        float numericDecimal;
+        char *strVal;
+        int type;
+        struct ast *n;
+    } attr;
 }
 
-%token <num> INT
-%token <flt> FLOAT
-%token <str> STRING ID
-%token IF ELSE FOR WHILE CONTINUE BREAK DEF RETURN
-%token PLUS MINUS MULT DIV
-%token ASSIGN PLUS_ASSIGN MINUS_ASSIGN
-%token EQ NEQ LT GT LTE GTE
-%token LPAREN RPAREN COLON ENDL INDENT DEDENT
+%{
+    extern FILE *yyout;
+    extern FILE *yyin;
+%}
 
-%type <node> program statement declaration expression block else_clause
+%token MULTIPLY IF ELSE WHILE NEWLINE EMPTY BLOCK_START DIVIDE ADD SUBTRACT EQUAL OPENPAREN CLOSEPAREN PRINT NOT LESS GREATER NOTEQUAL EQUALS GREATEREQUAL LESSEQUAL ADDEQUAL SUBTRACTEQUAL OPENBRACE CLOSEBRACE FUNCTION RETURN BREAK CONTINUE ARRAY SEMICOLON
 
-%left PLUS MINUS
-%left MULT DIV
-%left EQ NEQ LT GT LTE GTE
+%token <intVal> NUMERIC 
+%token <intVal> TABS 
+%token <floatVal> DECIMALNUMERIC 
+%token <stringVal> IDENTIFIER 
+%token <stringVal> STRING 
+%token <stringVal> BOOLEAN
 
-%%
-program:
-      program statement ENDL
-    | program ENDL
-    | /* empty production */ { printf("#Start of program\n"); $$ = create_program_node(); root = $$; }
-    ;
+%type <attr> statements statement types expression assignment print condition loop command
 
-statement:
-      declaration { printf("#Declaration or assignment statement\n"); $$ = $1; }
-    | expression { printf("#Expression statement\n"); $$ = $1; }
-    | IF expression COLON ENDL block ENDL else_clause {
-        printf("#If-else statement\n");
-        if ($2->type != TYPE_BOOL) {
-            yyerror("Condition in IF must be boolean");
-        }
-        $$ = create_if_else_node($2, $5, $7);
-    }
-    | FOR expression COLON ENDL block {
-        printf("#For statement\n");
-        if ($2->type != TYPE_INT) {
-            yyerror("Condition in FOR must be integer");
-        }
-        $$ = create_for_node($2, $5);
-    }
-    | WHILE expression COLON ENDL block {
-        printf("#While statement\n");
-        if ($2->type != TYPE_BOOL) {
-            yyerror("Condition in WHILE must be boolean");
-        }
-        $$ = create_while_node($2, $5);
-    }
-    | CONTINUE ENDL {
-        printf("#Continue statement\n");
-        $$ = create_continue_node();
-    }
-    | BREAK ENDL {
-        printf("#Break statement\n");
-        $$ = create_break_node();
-    }
-    | DEF ID LPAREN RPAREN COLON ENDL block {
-        printf("#Function definition\n");
-        if (symbol_exists($2)) {
-            yyerror("Function already declared");
-        }
-        add_symbol($2, TYPE_FUNCTION);
-        $$ = create_function_node($2, $7);
-    }
-    | RETURN expression ENDL {
-        printf("#Return statement\n");
-        if (current_function_return_type() != $2->type) {
-            yyerror("Return type mismatch");
-        }
-        $$ = create_return_node($2);
-    }
-    ;
+%left MULTIPLY DIVIDE ADD SUBTRACT EQUALS OR AND
 
-else_clause:
-    ELSE COLON ENDL block { 
-        printf("#Else block\n"); 
-        $$ = $4; 
-        }
-    | /* empty production */ { printf("#No else block\n"); $$ = NULL; }
-    ;
-
-declaration:
-    ID ASSIGN expression {
-        printf("#Variable declaration or assignment: %s of type %d\n", $1, $3->type);
-        if (!symbol_exists($1)) {
-            add_symbol($1, $3->type);
-        } else {
-            printf("#Variable %s already declared, reassigning with type %d\n", $1, $3->type);
-            update_symbol($1, $3->type);
-        }
-        $$ = create_id_node($1); // Return the variable node
-    }
-    ;
-
-expression:
-      INT { printf("#Integer: %d\n", $1); $$ = create_int_node($1); }
-    | FLOAT { printf("#Float: %f\n", $1); $$ = create_float_node($1); }
-    | STRING { printf("#String: %s\n", $1); $$ = create_string_node($1); }
-    | ID {
-        printf("#Identifier: %s\n", $1);
-        if (!symbol_exists($1)) {
-            yyerror("Undeclared variable");
-        }
-        $$ = create_id_node($1);
-    }
-    | expression PLUS expression {
-        printf("#Addition\n");
-        if ($1->type != $3->type) {
-            yyerror("Type mismatch in addition");
-        }
-        $$ = create_arith_node('+', $1, $3);
-    }
-    | expression MINUS expression {
-        printf("#Subtraction\n");
-        if ($1->type != $3->type) {
-            yyerror("Type mismatch in subtraction");
-        }
-        $$ = create_arith_node('-', $1, $3);
-    }
-    | expression MULT expression {
-        printf("#Multiplication\n");
-        if ($1->type != $3->type) {
-            yyerror("Type mismatch in multiplication");
-        }
-        $$ = create_arith_node('*', $1, $3);
-    }
-    | expression DIV expression {
-        printf("#Division\n");
-        if ($1->type == TYPE_INT && $3->type == TYPE_INT) {
-            $$ = create_arith_node('/', create_float_node((float)$1->value.int_val), create_float_node((float)$3->value.int_val));
-        } else if ($1->type == TYPE_FLOAT && $3->type == TYPE_FLOAT) {
-            $$ = create_arith_node('/', $1, $3);
-        } else if ($1->type == TYPE_INT && $3->type == TYPE_FLOAT) {
-            $$ = create_arith_node('/', create_float_node((float)$1->value.int_val), $3);
-        } else if ($1->type == TYPE_FLOAT && $3->type == TYPE_INT) {
-            $$ = create_arith_node('/', $1, create_float_node((float)$3->value.int_val));
-        } else if ($1->type == TYPE_ID && $3->type == TYPE_INT) {
-            type_t id_type = get_symbol_type($1->value.string_val);
-            if (id_type != TYPE_INT && id_type != TYPE_FLOAT && id_type != TYPE_ARITH) {
-                char buf[100];
-                const char *err_msg = "Type mismatch in division. Types: %d and %d";
-                snprintf(buf, 100, err_msg, id_type, TYPE_INT);
-                yyerror(buf);
-            }
-            $$ = create_arith_node('/', $1, create_float_node((float)$3->value.int_val));
-        } else if ($1->type == TYPE_ID && $3->type == TYPE_FLOAT) {
-            type_t id_type = get_symbol_type($1->value.string_val);
-            if (id_type != TYPE_INT && id_type != TYPE_FLOAT && id_type != TYPE_ARITH) {
-                char buf[100];
-                const char *err_msg = "Type mismatch in division. Types: %d and %d";
-                snprintf(buf, 100, err_msg, id_type, TYPE_FLOAT);
-                yyerror(buf);
-            }
-            $$ = create_arith_node('/', $1, $3);
-        } else if ($1->type == TYPE_INT && $3->type == TYPE_ID) {
-            type_t id_type = get_symbol_type($3->value.string_val);
-            if (id_type != TYPE_INT && id_type != TYPE_FLOAT && id_type != TYPE_ARITH) {
-                char buf[100];
-                const char *err_msg = "Type mismatch in division. Types: %d and %d";
-                snprintf(buf, 100, err_msg, TYPE_FLOAT, id_type);
-                yyerror(buf);
-            }
-            $$ = create_arith_node('/', create_float_node((float)$1->value.int_val), $3);
-        } else if ($1->type == TYPE_FLOAT && $3->type == TYPE_ID) {
-            type_t id_type = get_symbol_type($3->value.string_val);
-            if (id_type != TYPE_INT && id_type != TYPE_FLOAT && id_type != TYPE_ARITH) {
-                char buf[100];
-                const char *err_msg = "Type mismatch in division. Types: %d and %d";
-                snprintf(buf, 100, err_msg, TYPE_FLOAT, id_type);
-                yyerror(buf);
-            }
-            $$ = create_arith_node('/', $1, $3);
-        } else if ($1->type == TYPE_ID && $3->type == TYPE_ID) {
-            type_t id1_type = get_symbol_type($1->value.string_val);
-            type_t id2_type = get_symbol_type($3->value.string_val);
-            if ((id1_type != TYPE_INT && id1_type != TYPE_FLOAT && id1_type != TYPE_ARITH) || (id2_type != TYPE_INT && id2_type != TYPE_FLOAT && id2_type != TYPE_ARITH)) {
-                char buf[100];
-                const char *err_msg = "Type mismatch in division. Types: %d and %d";
-                snprintf(buf, 100, err_msg, id1_type, id2_type);
-                yyerror(buf);
-            }
-            $$ = create_arith_node('/', $1, $3);
-        } else {
-            yyerror("Type mismatch in division operation");
-        }
-    }
-    | expression EQ expression {
-        printf("#Equality check\n");
-        if ($1->type != $3->type) {
-            yyerror("Type mismatch in equality check");
-        }
-        $$ = create_relop_node("==", $1, $3);
-    }
-    | expression NEQ expression {
-        printf("#Inequality check\n");
-        if ($1->type != $3->type) {
-            yyerror("Type mismatch in inequality check");
-        }
-        $$ = create_relop_node("!=", $1, $3);
-    }
-    | expression LT expression {
-        printf("#Less-than check\n");
-        if ($1->type != $3->type) {
-            yyerror("Type mismatch in less-than check");
-        }
-        $$ = create_relop_node("<", $1, $3);
-    }
-    | expression GT expression {
-        printf("#Greater-than check\n");
-        if ($1->type != $3->type) {
-            yyerror("Type mismatch in greater-than check");
-        }
-        $$ = create_relop_node(">", $1, $3);
-    }
-    | expression LTE expression {
-        printf("#Less-than-or-equal check\n");
-        if ($1->type != $3->type) {
-            yyerror("Type mismatch in less-than-or-equal check");
-        }
-        $$ = create_relop_node("<=", $1, $3);
-    }
-    | expression GTE expression {
-        printf("#Greater-than-or-equal check\n");
-        if ($1->type != $3->type) {
-            yyerror("Type mismatch in greater-than-or-equal check");
-        }
-        $$ = create_relop_node(">=", $1, $3);
-    }
-    | LPAREN expression RPAREN { $$ = $2; }
-    ;
-
-block:
-    INDENT program DEDENT { $$ = $2; }
-    ;
-
+%start code 
 %%
 
+code : statements {
+    checkAST($1.n);
+};
+
+statements : statement | statements statement {
+    $$.n = createNonTerminalNode($1.n, $2.n, NODE_CHAIN);
+    if ($1.n != NULL) {
+        $$.n->depth = $1.n->depth;
+    } else if ($2.n != NULL) {
+        $$.n->depth = $2.n->depth;
+    } 
+};
+
+statement : TABS command {
+    $$ = $2;
+    assignDepth($$.n, $1);
+} | command {
+    $$ = $1;
+    assignDepth($$.n, 0);
+};
+
+command : assignment | print | condition | loop;
+
+condition: IF expression BLOCK_START statements {
+    if ($2.type == TYPE_BOOL) {
+        $$.n = createNonTerminalNode($2.n, $4.n, NODE_IF);
+    } else {
+        yyerror("syntax error: invalid type for IF condition");
+    }
+} | ELSE BLOCK_START statements {
+    $$.n = createNonTerminalNode($3.n, createEmptyNode(), NODE_ELSE);
+};
+
+loop: WHILE expression BLOCK_START statements {
+    if ($2.type == TYPE_BOOL) {
+        $$.n = createNonTerminalNode($2.n, $4.n, NODE_WHILE);
+    } else {
+        yyerror("syntax error: invalid type for WHILE condition");
+    }
+};
+
+assignment : IDENTIFIER EQUAL expression {
+    int idx = currentIndex;
+    int pos = findSymbol(currentIndex, $1, symbolTable);
+    if (pos == -1) {
+        symbolTable[idx].identifier = $1;
+        symbolTable[idx].dataType = $3.type;
+        if ($3.type == TYPE_NUMERIC || $3.type == TYPE_BOOL) {
+            symbolTable[idx].numVal = malloc(sizeof(double));
+            *symbolTable[idx].numVal = $3.numeric;
+        } else if ($3.type == TYPE_DECIMAL) {
+            symbolTable[idx].numVal = malloc(sizeof(double));
+            *symbolTable[idx].numVal = $3.numericDecimal;
+        } else if ($3.type == TYPE_STRING) {
+            symbolTable[idx].strVal = $3.strVal;
+        }
+        symbolTable[idx].pos = idx;
+        currentIndex++;
+    } else {
+        idx = pos;
+    }
+    $$.n = createNonTerminalNode($3.n, createEmptyNode(), NODE_ASSIGN);
+    $$.n->varName = symbolTable[idx].pos;
+};
+
+expression : expression ADD types {
+    if ($1.type == TYPE_NUMERIC && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_ADD);
+        $$.type = TYPE_NUMERIC;
+        $$.numeric = $1.numeric + $3.numeric;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_ADD);
+        $$.type = TYPE_DECIMAL;
+        $$.numericDecimal = $1.numericDecimal + $3.numericDecimal;
+    } else if ($1.type == TYPE_NUMERIC && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_ADD);
+        $$.type = TYPE_DECIMAL;
+        $$.numericDecimal = $1.numeric + $3.numericDecimal;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_ADD);
+        $$.type = TYPE_DECIMAL;
+        $$.numericDecimal = $1.numericDecimal + $3.numeric;
+    } else if ($1.type == TYPE_STRING && $3.type == TYPE_STRING) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_CONCAT);
+        $$.type = TYPE_STRING;
+        $$.strVal = malloc(strlen($1.strVal) + strlen($3.strVal) + 1);
+        strcpy($$.strVal, $1.strVal);
+        strcat($$.strVal, $3.strVal);
+    } else {
+        yyerror("ERROR due to type failure");
+    }
+} | expression SUBTRACT types {
+    if ($1.type == TYPE_NUMERIC && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_SUBTRACT);
+        $$.type = TYPE_NUMERIC;
+        $$.numeric = $1.numeric - $3.numeric;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_SUBTRACT);
+        $$.type = TYPE_DECIMAL;
+        $$.numericDecimal = $1.numericDecimal - $3.numericDecimal;
+    } else if ($1.type == TYPE_NUMERIC && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_SUBTRACT);
+        $$.type = TYPE_DECIMAL;
+        $$.numericDecimal = $1.numeric - $3.numericDecimal;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_SUBTRACT);
+        $$.type = TYPE_DECIMAL;
+        $$.numericDecimal = $1.numericDecimal - $3.numeric;
+    } else {
+        yyerror("ERROR due to type failure");
+    }
+} | expression MULTIPLY types {
+    if ($1.type == TYPE_NUMERIC && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_MULTIPLY);
+        $$.type = TYPE_NUMERIC;
+        $$.numeric = $1.numeric * $3.numeric;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_MULTIPLY);
+        $$.type = TYPE_DECIMAL;
+        $$.numericDecimal = $1.numericDecimal * $3.numericDecimal;
+    } else if ($1.type == TYPE_NUMERIC && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_MULTIPLY);
+        $$.type = TYPE_DECIMAL;
+        $$.numericDecimal = $1.numeric * $3.numericDecimal;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_MULTIPLY);
+        $$.type = TYPE_DECIMAL;
+        $$.numericDecimal = $1.numericDecimal * $3.numeric;
+    } else {
+        yyerror("ERROR due to type failure");
+    }
+} | expression DIVIDE types {
+    if ($1.type == TYPE_NUMERIC && $3.type == TYPE_NUMERIC) {
+        if ($3.numeric == 0) {
+            yyerror("Syntax error: Division by zero\n");
+        }
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_DIVIDE);
+        $$.type = TYPE_NUMERIC;
+        $$.numeric = $1.numeric / $3.numeric;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_DECIMAL) {
+        if ($3.numericDecimal == 0.0) {
+            yyerror("Syntax error: Division by zero\n");
+        }
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_DIVIDE);
+        $$.type = TYPE_DECIMAL;
+        $$.numericDecimal = $1.numericDecimal / $3.numericDecimal;
+    } else if ($1.type == TYPE_NUMERIC && $3.type == TYPE_DECIMAL) {
+        if ($3.numericDecimal == 0.0) {
+            yyerror("Syntax error: Division by zero\n");
+        }
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_DIVIDE);
+        $$.type = TYPE_DECIMAL;
+        $$.numericDecimal = $1.numeric / $3.numericDecimal;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_NUMERIC) {
+        if ($3.numeric == 0.0) {
+            yyerror("Syntax error: Division by zero\n");
+        }
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_DIVIDE);
+        $$.type = TYPE_DECIMAL;
+        $$.numericDecimal = $1.numericDecimal / $3.numeric;
+    } else {
+        yyerror("ERROR due to type failure");
+    }
+} | expression EQUALS types {
+    if ($1.type == TYPE_NUMERIC && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric == $3.numeric;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numericDecimal == $3.numericDecimal;
+    } else if ($1.type == TYPE_NUMERIC && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric == $3.numericDecimal;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numericDecimal == $3.numeric;
+    } else {
+        yyerror("ERROR due to type failure");
+    }
+} | expression AND types {
+    if ($1.type == TYPE_BOOL && $3.type == TYPE_BOOL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_AND);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric && $3.numeric;
+    }
+} | expression OR types {
+    if ($1.type == TYPE_BOOL && $3.type == TYPE_BOOL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_OR);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric || $3.numeric;
+    }
+} | expression GREATER types {
+    if ($1.type == TYPE_NUMERIC && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_GREATER);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric > $3.numeric;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_GREATER);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numericDecimal > $3.numericDecimal;
+    } else if ($1.type == TYPE_NUMERIC && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_GREATER);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric > $3.numericDecimal;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_GREATER);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numericDecimal > $3.numeric;
+    } else {
+        yyerror("ERROR due to type failure");
+    }
+} | expression LESS types {
+    if ($1.type == TYPE_NUMERIC && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_LESS);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric < $3.numeric;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_LESS);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numericDecimal < $3.numericDecimal;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_LESS);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numericDecimal < $3.numeric;
+    } else if ($1.type == TYPE_NUMERIC && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_LESS);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric < $3.numericDecimal;
+    } else {
+        yyerror("ERROR due to type failure");
+    }
+} | expression GREATEREQUAL types {
+    if ($1.type == TYPE_NUMERIC && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_GREATER_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric >= $3.numeric;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_GREATER_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numericDecimal >= $3.numericDecimal;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_GREATER_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numericDecimal >= $3.numeric;
+    } else if ($1.type == TYPE_NUMERIC && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_GREATER_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric >= $3.numericDecimal;
+    } else {
+        yyerror("ERROR due to type failure");
+    }
+} | expression LESSEQUAL types {
+    if ($1.type == TYPE_NUMERIC && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_LESS_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric <= $3.numeric;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_LESS_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numericDecimal <= $3.numericDecimal;
+    } else if($1.type == TYPE_NUMERIC && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_LESS_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric <= $3.numericDecimal;
+    } else if($1.type == TYPE_DECIMAL && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_LESS_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numericDecimal <= $3.numeric;
+    } else {
+        yyerror("ERROR due to type failure");
+    }
+} | expression NOTEQUAL types {
+    if ($1.type == TYPE_NUMERIC && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_NOT_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric != $3.numeric;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_NOT_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numericDecimal != $3.numericDecimal;
+    } else if ($1.type == TYPE_NUMERIC && $3.type == TYPE_DECIMAL) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_NOT_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numeric != $3.numericDecimal;
+    } else if ($1.type == TYPE_DECIMAL && $3.type == TYPE_NUMERIC) {
+        $$.n = createNonTerminalNode($1.n, $3.n, NODE_NOT_EQUAL);
+        $$.type = TYPE_BOOL;
+        $$.numeric = $1.numericDecimal != $3.numeric;
+    } else {
+        yyerror("ERROR due to type failure");
+    }
+} | SUBTRACT expression { 
+    if ($2.type == TYPE_DECIMAL) {
+        $2.numericDecimal = -$2.numericDecimal ;
+        $$ = $2; 
+    } else if ($2.type == TYPE_NUMERIC) {
+        $2.numeric = -$2.numeric ;
+        $$ = $2; 
+    } else {
+        yyerror("ERROR in negation operation ");
+    }
+} | OPENPAREN expression CLOSEPAREN { $$ = $2; }
+| types { $$ = $1; }
+;
+
+types: IDENTIFIER { 
+    int pos = findSymbol(currentIndex, $1, symbolTable);
+    if (pos != -1) {
+        int reg = symbolTable[pos].pos;
+        if (symbolTable[pos].dataType == TYPE_NUMERIC && symbolTable[pos].numVal != NULL) {
+            $$.type = symbolTable[pos].dataType;
+            $$.numeric = (int)*symbolTable[pos].numVal;
+            $$.n = createVariableTerminal(*symbolTable[pos].numVal, reg);
+        } else if (symbolTable[pos].dataType == TYPE_DECIMAL && symbolTable[pos].numVal != NULL) {
+            $$.type = symbolTable[pos].dataType;
+            $$.numericDecimal = (float)*symbolTable[pos].numVal;
+            $$.n = createVariableTerminal(*symbolTable[pos].numVal, reg);
+        }
+    } else {
+        int message_len = snprintf(NULL, 0, "Variable \"%s\" has not been registered before\n", $1);
+        char* message = (char*)malloc(message_len + 1);
+        sprintf(message, "Variable \"%s\" has not been registered before\n", $1);
+        yyerror(message);
+    }
+} | NUMERIC {
+    $$.numeric = $1;
+    $$.n = createTerminalNode($1);
+    $$.type = TYPE_NUMERIC;
+} | DECIMALNUMERIC {
+    $$.numericDecimal = $1;
+    $$.n = createTerminalNode($1);
+    $$.type = TYPE_DECIMAL;
+} | STRING {
+    $$.strVal = $1 + 1;
+    $$.strVal[strlen($$.strVal) - 1] = '\0';
+    $$.n = createTerminalNodeStr($$.strVal);
+    $$.type = TYPE_STRING;
+} | BOOLEAN {
+    if (strcmp($1, "true") == 0) {
+        $$.numeric = 1;
+    } else if (strcmp($1, "false") == 0) {
+        $$.numeric = 0;
+    } else {
+        yyerror("BOOLEAN FAILURE");
+    }
+    $$.n = createTerminalNode($$.numeric);
+    $$.type = TYPE_BOOL;
+};
+
+print: PRINT OPENPAREN expression CLOSEPAREN {
+    $$.n = createNonTerminalNode($3.n, createEmptyNode(), NODE_PRINT);
+} | PRINT OPENBRACE expression CLOSEBRACE {
+    $$.n = createNonTerminalNode($3.n, createEmptyNode(), NODE_PRINT);
+};
+
+%%
 
 int main(int argc, char **argv) {
-    init_symbol_table();
+    if (argc > 1) {
+        FILE *file = fopen(argv[1], "rt");
+        if (!file) {
+            fprintf(stderr, "Could not open %s\n", argv[1]);
+            return 1;
+        }
+        yyin = file;
+    } else {
+        yyerror("No input file provided\n");
+        return 1;
+    }
+    if (argc > 2) {
+        FILE *file = fopen(argv[2], "w");
+        if (!file) {
+            fprintf(stderr, "Could not open %s\n", argv[2]);
+            return 1;
+        }
+        yyout = file;
+    } else {
+        yyout = fopen("./output.asm", "wt");
+    }
     yyparse();
-    generate_mips_code(root);
+
+    fclose(yyin);
+    fclose(yyout);
+
     return 0;
 }
