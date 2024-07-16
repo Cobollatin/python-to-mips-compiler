@@ -85,14 +85,19 @@ extern int yydebug;
     CONTINUE = 286,                /* CONTINUE  */
     ARRAY = 287,                   /* ARRAY  */
     SEMICOLON = 288,               /* SEMICOLON  */
-    NUMERIC = 289,                 /* NUMERIC  */
-    TABS = 290,                    /* TABS  */
-    DECIMALNUMERIC = 291,          /* DECIMALNUMERIC  */
-    IDENTIFIER = 292,              /* IDENTIFIER  */
-    STRING = 293,                  /* STRING  */
-    BOOLEAN = 294,                 /* BOOLEAN  */
-    OR = 295,                      /* OR  */
-    AND = 296                      /* AND  */
+    FOR = 289,                     /* FOR  */
+    RANGE = 290,                   /* RANGE  */
+    IN = 291,                      /* IN  */
+    COMMA = 292,                   /* COMMA  */
+    INDEX = 293,                   /* INDEX  */
+    NUMERIC = 294,                 /* NUMERIC  */
+    TABS = 295,                    /* TABS  */
+    DECIMALNUMERIC = 296,          /* DECIMALNUMERIC  */
+    IDENTIFIER = 297,              /* IDENTIFIER  */
+    STRING = 298,                  /* STRING  */
+    BOOLEAN = 299,                 /* BOOLEAN  */
+    OR = 300,                      /* OR  */
+    AND = 301                      /* AND  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -114,7 +119,7 @@ union YYSTYPE
         struct ast *n;
     } attr;
 
-#line 118 "parser.tab.h"
+#line 123 "parser.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

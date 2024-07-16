@@ -7,17 +7,27 @@ a = 0
 b = 0
 c = 0
 d = 0
+f = 15
 
 # Arithmetic operations
-a = 5 + 3
+a = 5 + 2
 b = 10 - 2
 c = a * b
 d = c / 4
 
-# If condition
-if a > b:
-    a = b
-else:
-    b = a
+print(a)
 
-print("Result")
+while a < 10:
+    a = a + 1
+    print(a)
+
+# For loop
+for __index__ in range(0, 2):
+    print(f)
+
+# If condition
+if c > d:
+    print(c)
+else:
+    print(d)
+

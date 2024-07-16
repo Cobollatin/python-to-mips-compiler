@@ -29,7 +29,9 @@ typedef enum {
     NODE_WHILE, // 19
     NODE_AND, // 20
     NODE_OR, // 21
-    NODE_CONCAT // 22
+    NODE_CONCAT, // 22
+    NODE_FOR, // 23
+    NODE_RANGE // 24
 } NodeType;
 
 typedef enum {
@@ -62,17 +64,18 @@ void clearTmpReg(AST* n);
 AST* createEmptyNode();
 AST* createTerminalNode(double value);
 AST* createTerminalNodeStr(char* value);
+AST* createRangeNode(int start, int end);
 AST* createNonTerminalNode(AST* left, AST* right, NodeType nodeType);
 AST* createVariableTerminal(double value, int pos);
-bool nodeIsType(AST* attr, NodeType type);
 void assignDepth(AST* n, int depth);
 void handleNewNode(AST* n);
 void handleBinaryOperation(AST* n, const char* operation, int localLabelCounter, int nodeDepth);
 void handleComparisonOperation(AST* n, const char* operation, const char* movCondition, int localLabelCounter, int nodeDepth);
 void handlePrint(AST* n, int localLabelCounter, int nodeDepth);
 void handleAssign(AST* n, int localLabelCounter, int nodeDepth);
-void handleIf(AST* n, int localLabelCounter, int nodeDepth);
-void handleWhile(AST* n, int localLabelCounter, int nodeDepth);
+AST* handleIf(AST* n, int localLabelCounter, int nodeDepth);
+AST* handleFor(AST* n, int localLabelCounter, int nodeDepth);
+AST* handleWhile(AST* n, int localLabelCounter, int nodeDepth);
 AST* checkNodeValue(AST* n, int localLabelCounter, int currentDepth);
 void checkAST(AST* n);
 
