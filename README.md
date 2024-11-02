@@ -1,6 +1,6 @@
 # Python to MIPS compiler
 
-Compile with
+Build with
 
 ```bash
 build.sh
@@ -10,6 +10,12 @@ Run with
 
 ```bash
 ./compiler <input_file> <output_file>.asm
+```
+
+Run tests with
+
+```bash
+./test.sh
 ```
 
 The compiler will generate a MIPS assembly file that can be run with the MARS(<https://github.com/dpetersanderson/MARS/>) simulator.
