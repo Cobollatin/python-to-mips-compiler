@@ -6,4 +6,4 @@
 # Binary
 compiler
 # Assembly
-output.asm
+**/*.asm
