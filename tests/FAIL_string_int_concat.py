@@ -1,4 +1,4 @@
-str1 = "Hola"
+str1 = "Test"
 num = 5
-resultado = str1 + num  # Error: no se puede concatenar cadena con entero
-print(resultado)
+res = str1 + num  # Error: concat between an integer and str is not allowed
+print(res)

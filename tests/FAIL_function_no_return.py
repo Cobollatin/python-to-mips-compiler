@@ -1,5 +1,5 @@
 def suma(a, b):
-   c = a + b  # Error: falta return
+   c = a + b  # Error: no return statement
 
-resultado = suma(4, 5)
-print(resultado)
+res = suma(4, 5)
+print(res)

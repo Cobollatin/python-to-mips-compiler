@@ -1,6 +1,6 @@
-def suma(a, b):
+def sum(a, b):
    return a + b
 
 
-resultado = suma(4, 5)
-print(resultado)
+res = sum(4, 5)
+print(res)
