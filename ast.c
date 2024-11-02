@@ -23,8 +23,18 @@ void newline() {
 }
 
 void printFunction(struct ast* n) {
+    if(n == NULL)
+    {
+        return;
+    }
     fprintf(yyout, "li $v0, 2\n");
-    fprintf(yyout, "add.s $f12, $f31, $f%d\n", n->result);
+    if(n->type == TYPE_STRING) {
+        fprintf(yyout, "la $a0, %s\n", n->valueStr);
+    }
+    else
+    {
+        fprintf(yyout, "mov.s $f12, $f%d\n", n->result);
+    }
     fprintf(yyout, "mov.s $f30, $f12\n");
     fprintf(yyout, "syscall\n");
     newline();
@@ -35,8 +45,14 @@ void printVariables() {
     fprintf(yyout, "newline: .asciiz \"\\n\"\n");
     fprintf(yyout, "zero: .float 0.0\n");
     for(int i = 0; i < currentIndex; i++) {
-        if(symbolTable[i].numVal != NULL) {
-            fprintf(yyout, "var_%d: .float %.3f\n", symbolTable[i].pos, *symbolTable[i].numVal);
+        if(symbolTable[i].numVal != NULL || symbolTable[i].strVal != NULL) {
+            if(symbolTable[i].dataType == TYPE_STRING || symbolTable[i].dataType == TYPE_TEXT)
+            {
+                fprintf(yyout, "var_%d: .asciiz \"%s\"\n", symbolTable[i].pos, symbolTable[i].strVal);
+            }
+            else {
+                fprintf(yyout, "var_%d: .float %.3f\n", symbolTable[i].pos, *symbolTable[i].numVal);
+            }
         }
     }
 }
@@ -88,6 +104,12 @@ struct ast* createTerminalNode(double value) {
 struct ast* createTerminalNodeStr(char* value) {
     struct ast* n = malloc(sizeof(struct ast));
     n->left = NULL; n->right = NULL; n->valueStr = value; n->nodeType = NEW_NODE; n->depth = -1;
+    n->varName = currentIndex;
+    symbolTable[currentIndex].identifier = "_";
+    symbolTable[currentIndex].dataType = TYPE_STRING;
+    symbolTable[currentIndex].strVal = value;
+    symbolTable[currentIndex].pos = currentIndex;
+    currentIndex++;
     return n;
 }
 
@@ -115,7 +137,6 @@ AST* createRangeNode(int start, int end) {
 }
 
 void assignDepth(struct ast* n, int depth) {
-    fprintf(yyout, "# Assigning depth: %d\n", depth);
     if(n != NULL && n->nodeType != INVALID_NODE && n->depth == -1) {
         n->depth = depth;
         assignDepth(n->left, depth);
@@ -151,9 +172,28 @@ void handlePrint(struct ast* n, int localLabelCounter, int nodeDepth) {
     printFunction(n->left);
 }
 
+void printNodeAsComment(struct ast* n) {
+    if(n->type == TYPE_STRING || n->type == TYPE_TEXT)
+    {
+        fprintf(yyout, "# %s\n", n->valueStr);
+    }
+    else
+    {
+        fprintf(yyout, "# %f\n", n->value);
+    }
+}
+
 void handleAssign(struct ast* n, int localLabelCounter, int nodeDepth) {
     checkNodeValue(n->left, localLabelCounter, nodeDepth);
-    fprintf(yyout, "swc1 $f%d, var_%d\n", n->left->result, n->varName);
+    printNodeAsComment(n->left);
+    if(n->type == TYPE_STRING || n->type == TYPE_TEXT)
+    {
+        fprintf(yyout, "la $a%d, var_%d\n", n->left->result, n->varName);
+    }
+    else
+    {
+        fprintf(yyout, "swc1 $f%d, var_%d\n", n->left->result, n->varName);
+    }
     clearReg(n->left, NULL);
 }
 
